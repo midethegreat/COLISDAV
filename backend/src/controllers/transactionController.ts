@@ -1,18 +1,13 @@
 import { Request, Response } from "express";
+import axios from "axios"; // Import axios
 import { AppDataSource } from "../data-source";
 import { Transaction, TransactionType } from "../entities/Transaction";
 import { User } from "../entities/User";
 import { sendNotification } from "../notificationService";
-import Flutterwave from "flutterwave-node-v3";
 import { flutterwaveConfig } from "../constants/flutterwaveConfig";
 
 const transactionRepository = AppDataSource.getRepository(Transaction);
 const userRepository = AppDataSource.getRepository(User);
-
-const flw = new Flutterwave(
-  flutterwaveConfig.publicKey,
-  flutterwaveConfig.secretKey,
-);
 
 export const createTransaction = async (req: Request, res: Response) => {
   const { userId, type, amount } = req.body;
@@ -97,7 +92,8 @@ export const initializeFlutterwavePayment = async (
       tx_ref: transactionRef,
       amount,
       currency: "NGN",
-      redirect_url: "https://your-app.com/payment-callback", // IMPORTANT: Update this URL to your actual callback URL
+      redirect_url: "https://cid.dev/wallet",
+      payment_options: "card,banktransfer,ussd",
       customer: {
         email,
         phonenumber: phoneNumber,
@@ -106,23 +102,30 @@ export const initializeFlutterwavePayment = async (
       customizations: {
         title: "CampusRide Wallet Deposit",
         description: "Fund your CampusRide wallet",
-        logo: "https://your-app.com/logo.png", // IMPORTANT: Update with your actual logo URL
+        logo: "https://your-app.com/logo.png",
       },
     };
 
-    const response = await flw.Payment.init(payload);
+    const response = await axios.post(
+      "https://api.flutterwave.com/v3/payments",
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${flutterwaveConfig.secretKey}`,
+        },
+      },
+    );
 
-    if (response.status === "success") {
-      // Create a pending transaction record
+    if (response.data.status === "success") {
       const newTransaction = new Transaction();
       newTransaction.user = user;
       newTransaction.amount = parseFloat(amount);
       newTransaction.type = TransactionType.DEPOSIT;
       newTransaction.reference = transactionRef;
-      newTransaction.status = "pending"; // Mark as pending initially
+      newTransaction.status = "pending";
       await transactionRepository.save(newTransaction);
 
-      res.status(200).json({ link: response.data.link });
+      res.status(200).json({ link: response.data.data.link });
     } else {
       throw new Error("Failed to initialize payment.");
     }
@@ -138,91 +141,154 @@ export const verifyFlutterwaveTransaction = async (
   req: Request,
   res: Response,
 ) => {
-  const { transaction_id } = req.query; // Flutterwave sends transaction_id in query params for GET requests
+  const { tx_ref, transaction_id } = req.body;
+  console.log("[BACKEND VERIFY] Request received with body:", req.body);
 
   if (!transaction_id) {
-    // If it's a POST request (webhook), transaction_id might be in the body
-    // For now, we'll assume it's a redirect from the user's browser
+    console.log("[BACKEND VERIFY] Error: Missing transaction_id.");
     return res.status(400).json({ message: "Transaction ID is required." });
   }
 
   try {
-    // Verify the transaction with Flutterwave
-    const response = await flw.Transaction.verify({
-      id: transaction_id as string,
-    });
+    console.log(
+      `[BACKEND VERIFY] Verifying with Flutterwave, transaction_id: ${transaction_id}`,
+    );
+    const verificationResponse = await axios.get(
+      `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
+      {
+        headers: {
+          Authorization: `Bearer ${flutterwaveConfig.secretKey}`,
+        },
+      },
+    );
 
-    if (
-      response.status === "success" &&
-      response.data.status === "successful"
-    ) {
-      const transactionRef = response.data.tx_ref;
-      const amount = response.data.amount;
+    const { data } = verificationResponse;
+    console.log(
+      "[BACKEND VERIFY] Flutterwave API response:",
+      JSON.stringify(data, null, 2),
+    );
 
-      // Find the pending transaction in our database
+    if (data.status === "success" && data.data.status === "successful") {
+      const transactionDetails = data.data;
+      const { tx_ref: flutterwaveTxRef } = transactionDetails;
+      console.log(
+        `[BACKEND VERIFY] Flutterwave verification successful for tx_ref: ${flutterwaveTxRef}`,
+      );
+
+      let transaction = await transactionRepository.findOne({
+        where: { reference: flutterwaveTxRef },
+        relations: ["user"],
+      });
+
+      // If transaction exists and is already successful, do nothing further.
+      if (transaction && transaction.status === "success") {
+        console.log(
+          `[BACKEND VERIFY] Transaction ${flutterwaveTxRef} already processed and successful.`,
+        );
+        return res.status(200).json({
+          message: "Transaction already verified.",
+          newBalance: transaction.user.walletBalance,
+        });
+      }
+
+      // If transaction exists but is not successful, or doesn't exist, proceed.
+      if (!transaction) {
+        console.log(
+          `[BACKEND VERIFY] No existing transaction found for ref: ${flutterwaveTxRef}. Creating a new one.`,
+        );
+        const { userId } = req.body; // Get userId from the initial request
+        const user = await userRepository.findOneBy({ id: userId });
+        if (!user) {
+          return res.status(404).json({ message: "User not found." });
+        }
+        transaction = new Transaction();
+        transaction.user = user;
+        transaction.reference = flutterwaveTxRef;
+        transaction.type = TransactionType.DEPOSIT;
+      } else {
+        console.log(
+          `[BACKEND VERIFY] Found existing transaction in DB with status: ${transaction.status}`,
+        );
+      }
+
+      // Security check: Verify amount and currency
+      if (
+        parseFloat(transactionDetails.amount) < transaction.amount ||
+        transactionDetails.currency !== "NGN"
+      ) {
+        transaction.status = "failed";
+        transaction.amount = parseFloat(transactionDetails.amount); // Update with actual amount from Flutterwave
+        await transactionRepository.save(transaction);
+        console.log(
+          `[BACKEND VERIFY] Error: Transaction details mismatch or amount discrepancy.`,
+        );
+        return res
+          .status(400)
+          .json({ message: "Transaction details mismatch." });
+      }
+
+      // Update transaction details
+      transaction.status = "success";
+      transaction.amount = parseFloat(transactionDetails.amount);
+
+      // Update user's wallet balance
+      const user = transaction.user;
+      const oldBalance = user.walletBalance;
+      user.walletBalance += transaction.amount;
+
+      // Save both entities in a single transaction
+      await AppDataSource.manager.transaction(
+        async (transactionalEntityManager) => {
+          await transactionalEntityManager.save(transaction);
+          await transactionalEntityManager.save(user);
+        },
+      );
+
+      console.log(
+        `[BACKEND VERIFY] User wallet updated. Old: ${oldBalance}, New: ${user.walletBalance}`,
+      );
+
+      await sendNotification(
+        user.id,
+        "Deposit Successful",
+        `Your wallet has been credited with ${transaction.amount} NGN. Your new balance is ${user.walletBalance} NGN.`,
+      );
+
+      return res.status(200).json({
+        message: "Transaction verified and wallet updated successfully.",
+        newBalance: user.walletBalance,
+      });
+    } else {
+      console.log(
+        `[BACKEND VERIFY] Flutterwave verification failed or payment not successful. Status: ${data.data.status}`,
+      );
       const transaction = await transactionRepository.findOne({
-        where: { reference: transactionRef, status: "pending" },
+        where: { reference: tx_ref as string, status: "pending" },
         relations: ["user"],
       });
 
       if (transaction) {
-        // Update transaction status
-        transaction.status = "success";
+        transaction.status = "failed";
         await transactionRepository.save(transaction);
-
-        // Update user's wallet balance
-        const user = transaction.user;
-        user.walletBalance += amount;
-        await userRepository.save(user);
-
-        // Send notification
+        console.log(
+          `[BACKEND VERIFY] Marked transaction ${transaction.reference} as failed.`,
+        );
         await sendNotification(
-          user.id,
-          "Deposit Successful",
-          `Your wallet has been credited with ${amount} NGN. Your new balance is ${user.walletBalance} NGN.`,
+          transaction.user.id,
+          "Deposit Failed",
+          `Your deposit of ${transaction.amount} NGN failed. Please try again.`,
         );
+      }
 
-        return res
-          .status(200)
-          .json({
-            message: "Transaction verified and wallet updated successfully.",
-          });
-      } else {
-        // Transaction not found or already processed
-        console.warn(
-          `Transaction with reference ${transactionRef} not found or already processed.`,
-        );
-        return res
-          .status(404)
-          .json({ message: "Transaction not found or already processed." });
-      }
-    } else {
-      // Payment was not successful or verification failed
-      console.error("Flutterwave transaction verification failed:", response);
-      // Optionally, update transaction status to 'failed' if found
-      const transactionRef = response.data?.tx_ref;
-      if (transactionRef) {
-        const transaction = await transactionRepository.findOne({
-          where: { reference: transactionRef, status: "pending" },
-        });
-        if (transaction) {
-          transaction.status = "failed";
-          await transactionRepository.save(transaction);
-          await sendNotification(
-            transaction.user.id,
-            "Deposit Failed",
-            `Your deposit of ${transaction.amount} NGN failed. Please try again.`,
-          );
-        }
-      }
-      return res
-        .status(400)
-        .json({
-          message: "Transaction verification failed or payment not successful.",
-        });
+      return res.status(400).json({
+        message: "Transaction verification failed or payment not successful.",
+      });
     }
   } catch (error) {
-    console.error("Error verifying Flutterwave transaction:", error);
+    console.error(
+      "[BACKEND VERIFY] CATCH BLOCK: Error verifying Flutterwave transaction:",
+      error.response ? error.response.data : error.message,
+    );
     return res
       .status(500)
       .json({ message: "Failed to verify transaction.", error: error.message });

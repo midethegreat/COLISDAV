@@ -21,6 +21,7 @@ import {
   ArrowDownLeft,
   ChevronRight,
   X,
+  Clock,
   Wallet,
   Bell,
   Banknote,
@@ -30,12 +31,22 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "../constants/color";
 import { useAuth } from "../providers/AuthProvider";
-import { MOCK_TRANSACTIONS } from "../mocks/data";
 import DrawerMenu from "../components/DrawerMenu";
-import { monnifyConfig } from "../constants/env";
+
 import { api } from "../constants/api";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
+import Header from "../components/Header";
+
+type Transaction = {
+  id: string;
+  title: string;
+  amount: number;
+  isCredit: boolean;
+  type: string;
+  status: "success" | "pending" | "failed" | "void";
+  createdAt: string;
+};
 
 const base64 = {
   decode: (str: string) => {
@@ -61,90 +72,47 @@ export default function WalletScreen() {
   const insets = useSafeAreaInsets();
   const { user, updateUser } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
-  const [showMonnifyModal, setShowMonnifyModal] = useState<boolean>(false);
-  const [monnifyAmount, setMonnifyAmount] = useState<string>("");
-  const [monnifyProcessing, setMonnifyProcessing] = useState<boolean>(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState<boolean>(false);
   const [withdrawAmount, setWithdrawAmount] = useState<string>("");
   const [withdrawProcessing, setWithdrawProcessing] = useState<boolean>(false);
-  const [showFlutterwaveModal, setShowFlutterwaveModal] =
-    useState<boolean>(false);
-  const [flutterwaveAmount, setFlutterwaveAmount] = useState<string>("");
-  const [flutterwaveProcessing, setFlutterwaveProcessing] =
-    useState<boolean>(false);
+  const [showDepositModal, setShowDepositModal] = useState<boolean>(false);
+  const [depositAmount, setDepositAmount] = useState<string>("");
+  const [depositProcessing, setDepositProcessing] = useState<boolean>(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  const recentTransactions = MOCK_TRANSACTIONS.slice(0, 4);
   const presetAmounts = [1000, 2000, 5000, 10000];
 
-  const handleMonnifyDeposit = async () => {
-    if (!user) {
-      Alert.alert("Error", "You must be logged in to make a deposit.");
-      return;
-    }
-
-    if (!user.email) {
-      Alert.alert(
-        "Update Profile",
-        "Please add your email address in your profile before making a deposit.",
-      );
-      return;
-    }
-
-    const numAmount = parseInt(monnifyAmount, 10);
-    if (!numAmount || numAmount < 100) {
-      Alert.alert("Invalid Amount", "Minimum deposit is ₦100");
-      return;
-    }
-    setMonnifyProcessing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-    try {
-      // Securely initialize payment via your backend
-      const response = await fetch(
-        "http://192.168.0.121:3000/api/transactions/initialize-monnify",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            amount: numAmount,
-            userId: user.id,
-          }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok || !data.checkoutUrl) {
-        throw new Error(data.message || "Failed to initialize payment.");
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch(`${api.baseUrl}/transactions/${user.id}`);
+        const data = await response.json();
+        if (response.ok) {
+          setTransactions(data);
+        } else {
+          throw new Error(data.message || "Failed to fetch transactions.");
+        }
+      } catch (error) {
+        console.error("Fetch Transactions Error:", error);
+        Alert.alert(
+          "Error",
+          "Could not fetch transaction history. Please try again.",
+        );
       }
+    };
 
-      const checkoutUrl = data.checkoutUrl;
+    fetchTransactions();
+  }, [user]);
 
-      // Open Checkout URL - verification is handled by the Linking listener
-      setShowMonnifyModal(false);
-      setMonnifyAmount("");
-      await WebBrowser.openBrowserAsync(checkoutUrl);
-    } catch (error) {
-      console.error("Monnify Deposit Error:", error);
-      Alert.alert(
-        "Deposit Failed",
-        `Could not initiate the deposit. ${
-          error instanceof Error ? error.message : "Please try again."
-        }`,
-      );
-    } finally {
-      setMonnifyProcessing(false);
-    }
-  };
-
-  const handleFlutterwaveDeposit = async () => {
+  const handleDeposit = async () => {
+    console.log("User object in handleDeposit:", user);
     if (!user) {
       Alert.alert("Error", "You must be logged in to make a deposit.");
       return;
     }
 
+    // This check ensures the user's profile is complete
     if (!user.email || !user.fullName || !user.phoneNumber) {
       Alert.alert(
         "Update Profile",
@@ -153,15 +121,16 @@ export default function WalletScreen() {
       return;
     }
 
-    const numAmount = parseInt(flutterwaveAmount, 10);
+    const numAmount = parseInt(depositAmount, 10);
     if (!numAmount || numAmount < 100) {
       Alert.alert("Invalid Amount", "Minimum deposit is ₦100");
       return;
     }
-    setFlutterwaveProcessing(true);
+    setDepositProcessing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     try {
+      // The user's details are sent to the backend here
       const response = await fetch(
         `${api.baseUrl}/transactions/initialize-flutterwave`,
         {
@@ -184,8 +153,8 @@ export default function WalletScreen() {
       }
 
       // Open the payment link in the browser
-      setShowFlutterwaveModal(false);
-      setFlutterwaveAmount("");
+      setShowDepositModal(false);
+      setDepositAmount("");
       await WebBrowser.openBrowserAsync(data.link);
     } catch (error) {
       Alert.alert(
@@ -193,65 +162,33 @@ export default function WalletScreen() {
         error instanceof Error ? error.message : "An unknown error occurred.",
       );
     } finally {
-      setFlutterwaveProcessing(false);
+      setDepositProcessing(false);
     }
   };
 
-  const verifyMonnifyPayment = useCallback(
-    async (transactionReference: string) => {
+  const verifyDeposit = useCallback(
+    async (tx_ref: string, transaction_id: string) => {
       if (!user) return;
-      setMonnifyProcessing(true); // Show loading indicator
-      try {
-        const verifyResponse = await fetch(
-          "http://192.168.0.121:3000/api/transactions/verify-monnify",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ transactionReference, userId: user.id }),
-          },
-        );
-
-        const verifyData = await verifyResponse.json();
-
-        if (verifyResponse.ok) {
-          Alert.alert(
-            "Deposit Successful",
-            `Your new balance is ₦${verifyData.newBalance}`,
-          );
-          updateUser({ walletBalance: verifyData.newBalance });
-        } else {
-          throw new Error(
-            verifyData.message || "Failed to verify transaction.",
-          );
-        }
-      } catch (error) {
-        console.error("Monnify Verification Error:", error);
-        Alert.alert(
-          "Verification Failed",
-          error instanceof Error ? error.message : "An unknown error occurred.",
-        );
-      } finally {
-        setMonnifyProcessing(false);
-      }
-    },
-    [user, updateUser],
-  );
-
-  const verifyFlutterwavePayment = useCallback(
-    async (tx_ref: string) => {
-      if (!user) return;
-      setFlutterwaveProcessing(true); // Show loading indicator
+      console.log(
+        `[VERIFYING DEPOSIT] tx_ref: ${tx_ref}, transaction_id: ${transaction_id}`,
+      );
+      setDepositProcessing(true); // Show loading indicator
       try {
         const verifyResponse = await fetch(
           `${api.baseUrl}/transactions/verify-flutterwave`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tx_ref, userId: user.id }),
+            body: JSON.stringify({ tx_ref, transaction_id, userId: user.id }),
           },
         );
 
-        const verifyData = await verifyResponse.json();
+        // Log raw response text for debugging
+        const responseText = await verifyResponse.text();
+        console.log("[VERIFY RESPONSE TEXT]", responseText);
+
+        const verifyData = JSON.parse(responseText);
+        console.log("[VERIFY RESPONSE JSON]", verifyData);
 
         if (verifyResponse.ok) {
           Alert.alert(
@@ -259,6 +196,8 @@ export default function WalletScreen() {
             `Your new balance is ₦${verifyData.newBalance}`,
           );
           updateUser({ walletBalance: verifyData.newBalance });
+          // Manually refetch transactions to update the list
+          fetchTransactions();
         } else {
           throw new Error(
             verifyData.message || "Failed to verify transaction.",
@@ -271,31 +210,50 @@ export default function WalletScreen() {
           error instanceof Error ? error.message : "An unknown error occurred.",
         );
       } finally {
-        setFlutterwaveProcessing(false);
+        setDepositProcessing(false);
       }
     },
     [user, updateUser],
   );
 
   useEffect(() => {
-    const handleRedirect = (event: { url: string }) => {
-      const { queryParams } = Linking.parse(event.url);
-      const monnifyRef = queryParams?.transactionReference as string;
-      const flutterwaveRef = queryParams?.tx_ref as string;
+    const handleRedirect = (url: string | null) => {
+      if (!url) return;
 
-      if (monnifyRef) {
-        verifyMonnifyPayment(monnifyRef);
-      } else if (flutterwaveRef) {
-        verifyFlutterwavePayment(flutterwaveRef);
+      console.log("[DEEP LINK RECEIVED]", url);
+      const { queryParams } = Linking.parse(url);
+      console.log("[PARSED QUERY PARAMS]", queryParams);
+
+      const tx_ref = queryParams?.tx_ref as string;
+      const transaction_id = queryParams?.transaction_id as string;
+      const status = queryParams?.status as string;
+
+      if (status === "cancelled") {
+        Alert.alert("Payment Cancelled", "You cancelled the deposit process.");
+        return;
+      }
+
+      if (tx_ref && transaction_id) {
+        verifyDeposit(tx_ref, transaction_id);
+      } else {
+        console.log(
+          "[MISSING PARAMS] tx_ref or transaction_id not found in URL.",
+        );
       }
     };
 
-    const subscription = Linking.addEventListener("url", handleRedirect);
+    // Handle initial URL (app opened from a deep link)
+    Linking.getInitialURL().then(handleRedirect);
+
+    // Handle subsequent URLs (app already open)
+    const subscription = Linking.addEventListener("url", (event) =>
+      handleRedirect(event.url),
+    );
 
     return () => {
       subscription.remove();
     };
-  }, [verifyMonnifyPayment, verifyFlutterwavePayment]);
+  }, [verifyDeposit]);
 
   const handleWithdraw = async () => {
     if (!user) {
@@ -361,24 +319,11 @@ export default function WalletScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => setDrawerOpen(true)}
-        >
-          <Menu size={22} color={Colors.dark} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>CID Wallet</Text>
-          <Text style={styles.headerSub}>MANAGE YOUR CAMPUS BALANCE</Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => router.push("/notifications" as never)}
-          style={styles.notificationButton}
-        >
-          <Bell size={24} color={Colors.dark} />
-        </TouchableOpacity>
-      </View>
+      <Header
+        title="CID Wallet"
+        subtitle="MANAGE YOUR CAMPUS BALANCE"
+        onMenuPress={() => setDrawerOpen(true)}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -393,7 +338,7 @@ export default function WalletScreen() {
         >
           <Text style={styles.balanceLabel}>MAIN BALANCE</Text>
           <Text style={styles.balanceAmount}>
-            ₦{(user?.walletBalance ?? 5000).toLocaleString()}
+            ₦{(user?.walletBalance ?? 0).toLocaleString()}
           </Text>
           <View style={styles.secureRow}>
             <ShieldCheck size={14} color="rgba(255,255,255,0.5)" />
@@ -406,7 +351,7 @@ export default function WalletScreen() {
             style={styles.depositCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowMonnifyModal(true);
+              setShowDepositModal(true);
             }}
             activeOpacity={0.7}
           >
@@ -416,28 +361,9 @@ export default function WalletScreen() {
                 { backgroundColor: Colors.primaryLight },
               ]}
             >
-              <CreditCard size={24} color={Colors.primary} />
+              <Landmark size={24} color={Colors.primary} />
             </View>
-            <Text style={styles.depositLabel}>MONNIFY</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.depositCard}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowFlutterwaveModal(true);
-            }}
-            activeOpacity={0.7}
-          >
-            <View
-              style={[
-                styles.depositIcon,
-                { backgroundColor: Colors.accentLight },
-              ]}
-            >
-              <Landmark size={24} color={Colors.accent} />
-            </View>
-            <Text style={styles.depositLabel}>FLUTTERWAVE</Text>
+            <Text style={styles.depositLabel}>DEPOSIT</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -484,47 +410,102 @@ export default function WalletScreen() {
         </View>
 
         <View style={styles.transactionList}>
-          {recentTransactions.map((tx) => (
-            <TouchableOpacity
-              key={tx.id}
-              style={styles.txItem}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push("/activity" as never);
-              }}
-              activeOpacity={0.7}
-            >
-              <View
-                style={[
-                  styles.txIcon,
-                  tx.isCredit ? styles.txIconCredit : styles.txIconDebit,
-                ]}
+          {transactions.slice(0, 4).map((tx) => {
+            const isCredit =
+              tx.type.toLowerCase() === "deposit" ||
+              tx.type.toLowerCase() === "topup";
+            const title = isCredit ? "Deposit" : tx.title;
+
+            // Determine color and icon based on status
+            const isSuccess = tx.status === "success";
+            const isFailed = tx.status === "failed" || tx.status === "void";
+            const isPending = tx.status === "pending";
+
+            const statusColor = isSuccess
+              ? Colors.primary
+              : isFailed
+                ? Colors.red
+                : isPending
+                  ? Colors.accent
+                  : Colors.gray;
+
+            const iconBackgroundColor = isSuccess
+              ? Colors.primaryLight
+              : isFailed
+                ? Colors.redLight
+                : isPending
+                  ? Colors.accentLight
+                  : Colors.lightGray;
+
+            return (
+              <TouchableOpacity
+                key={tx.id}
+                style={styles.txCard}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: "/receipt",
+                    params: {
+                      txId: tx.id,
+                      fare: tx.amount.toString(),
+                      amount: tx.amount.toString(),
+                      date: tx.createdAt,
+                      status: tx.status,
+                      type: isCredit ? "deposit" : tx.type,
+                      pickup: "N/A",
+                      destination: tx.title,
+                    },
+                  });
+                }}
+                activeOpacity={0.8}
               >
-                {tx.isCredit ? (
-                  <ArrowDownLeft size={18} color={Colors.primary} />
-                ) : (
-                  <ArrowUpRight size={18} color={Colors.red} />
-                )}
-              </View>
-              <View style={styles.txInfo}>
-                <Text style={styles.txTitle}>{tx.title}</Text>
-                {tx.status === "void" && (
-                  <Text style={styles.txVoid}>VOID</Text>
-                )}
-                {tx.type === "topup" && tx.isCredit && (
-                  <Text style={styles.txSubtext}>YES</Text>
-                )}
-              </View>
-              <Text
-                style={[
-                  styles.txAmount,
-                  tx.isCredit ? styles.txAmountCredit : styles.txAmountDebit,
-                ]}
-              >
-                {tx.isCredit ? "+" : ""}₦{tx.amount.toLocaleString()}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <View style={styles.txCardLeft}>
+                  <View
+                    style={[
+                      styles.txIcon,
+                      { backgroundColor: iconBackgroundColor },
+                    ]}
+                  >
+                    {isPending ? (
+                      <Clock size={20} color={statusColor} />
+                    ) : isCredit ? (
+                      <ArrowDownLeft size={20} color={statusColor} />
+                    ) : (
+                      <ArrowUpRight size={20} color={statusColor} />
+                    )}
+                  </View>
+                  <View>
+                    <Text style={styles.txTitle}>{title}</Text>
+                    <Text style={styles.txDate}>
+                      {new Date(tx.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.txCardRight}>
+                  <Text style={[{ color: statusColor }, styles.txAmount]}>
+                    {isCredit ? "+" : "-"}₦{tx.amount.toLocaleString()}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.txStatus,
+                      styles[
+                        `txStatus${
+                          tx.status.charAt(0).toUpperCase() + tx.status.slice(1)
+                        }`
+                      ],
+                    ]}
+                  >
+                    {tx.status.toUpperCase()}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <View style={styles.quickActions}>
@@ -622,21 +603,21 @@ export default function WalletScreen() {
         </View>
       </Modal>
 
-      <Modal visible={showMonnifyModal} transparent animationType="slide">
+      <Modal visible={showDepositModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View
             style={[styles.monnifySheet, { paddingBottom: insets.bottom + 20 }]}
           >
             <View style={styles.monnifyHeader}>
               <View>
-                <Text style={styles.monnifyTitle}>Deposit via Monnify</Text>
+                <Text style={styles.monnifyTitle}>Deposit Funds</Text>
                 <Text style={styles.monnifySub}>SECURE PAYMENT GATEWAY</Text>
               </View>
               <TouchableOpacity
                 style={styles.closeBtn}
                 onPress={() => {
-                  setShowMonnifyModal(false);
-                  setMonnifyAmount("");
+                  setShowDepositModal(false);
+                  setDepositAmount("");
                 }}
               >
                 <X size={18} color={Colors.gray} />
@@ -648,8 +629,8 @@ export default function WalletScreen() {
               style={styles.amountInput}
               placeholder="0"
               placeholderTextColor={Colors.lightGray}
-              value={monnifyAmount}
-              onChangeText={setMonnifyAmount}
+              value={depositAmount}
+              onChangeText={setDepositAmount}
               keyboardType="number-pad"
             />
 
@@ -659,15 +640,15 @@ export default function WalletScreen() {
                   key={preset}
                   style={[
                     styles.presetBtn,
-                    monnifyAmount === preset.toString() &&
+                    depositAmount === preset.toString() &&
                       styles.presetBtnActive,
                   ]}
-                  onPress={() => setMonnifyAmount(preset.toString())}
+                  onPress={() => setDepositAmount(preset.toString())}
                 >
                   <Text
                     style={[
                       styles.presetText,
-                      monnifyAmount === preset.toString() &&
+                      depositAmount === preset.toString() &&
                         styles.presetTextActive,
                     ]}
                   >
@@ -680,111 +661,28 @@ export default function WalletScreen() {
             <View style={styles.monnifyInfo}>
               <Wallet size={18} color={Colors.primary} />
               <Text style={styles.monnifyInfoText}>
-                You'll be redirected to Monnify's secure payment page to
-                complete this transaction.
+                You'll be redirected to a secure payment page to complete this
+                transaction.
               </Text>
             </View>
 
             <TouchableOpacity
               style={[
                 styles.proceedBtn,
-                (!monnifyAmount || monnifyProcessing) &&
+                (!depositAmount || depositProcessing) &&
                   styles.proceedBtnDisabled,
               ]}
-              onPress={handleMonnifyDeposit}
-              disabled={!monnifyAmount || monnifyProcessing}
+              onPress={handleDeposit}
+              disabled={!depositAmount || depositProcessing}
               activeOpacity={0.85}
             >
               <Text style={styles.proceedBtnText}>
-                {monnifyProcessing
+                {depositProcessing
                   ? "Processing..."
-                  : `Proceed to Monnify${monnifyAmount ? ` • ₦${parseInt(monnifyAmount || "0", 10).toLocaleString()}` : ""}`}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={showFlutterwaveModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View
-            style={[styles.monnifySheet, { paddingBottom: insets.bottom + 20 }]}
-          >
-            <View style={styles.monnifyHeader}>
-              <View>
-                <Text style={styles.monnifyTitle}>Deposit via Flutterwave</Text>
-                <Text style={styles.monnifySub}>SECURE PAYMENT GATEWAY</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={() => {
-                  setShowFlutterwaveModal(false);
-                  setFlutterwaveAmount("");
-                }}
-              >
-                <X size={18} color={Colors.gray} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.amountLabel}>ENTER AMOUNT (₦)</Text>
-            <TextInput
-              style={styles.amountInput}
-              placeholder="0"
-              placeholderTextColor={Colors.lightGray}
-              value={flutterwaveAmount}
-              onChangeText={setFlutterwaveAmount}
-              keyboardType="number-pad"
-            />
-
-            <View style={styles.presetRow}>
-              {presetAmounts.map((preset) => (
-                <TouchableOpacity
-                  key={preset}
-                  style={[
-                    styles.presetBtn,
-                    flutterwaveAmount === preset.toString() &&
-                      styles.presetBtnActive,
-                  ]}
-                  onPress={() => setFlutterwaveAmount(preset.toString())}
-                >
-                  <Text
-                    style={[
-                      styles.presetText,
-                      flutterwaveAmount === preset.toString() &&
-                        styles.presetTextActive,
-                    ]}
-                  >
-                    ₦{preset.toLocaleString()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.monnifyInfo}>
-              <Wallet size={18} color={Colors.primary} />
-              <Text style={styles.monnifyInfoText}>
-                You'll be redirected to Flutterwave's secure payment page to
-                complete this transaction.
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.proceedBtn,
-                (!flutterwaveAmount || flutterwaveProcessing) &&
-                  styles.proceedBtnDisabled,
-              ]}
-              onPress={handleFlutterwaveDeposit}
-              disabled={!flutterwaveAmount || flutterwaveProcessing}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.proceedBtnText}>
-                {flutterwaveProcessing
-                  ? "Processing..."
-                  : `Proceed to Flutterwave${
-                      flutterwaveAmount
+                  : `Proceed to Deposit${
+                      depositAmount
                         ? ` • ₦${parseInt(
-                            flutterwaveAmount || "0",
+                            depositAmount || "0",
                             10,
                           ).toLocaleString()}`
                         : ""
@@ -804,46 +702,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerCenter: {
-    alignItems: "center",
-  },
-  notificationButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700" as const,
-    color: Colors.dark,
-  },
-  headerSub: {
-    fontSize: 9,
-    fontWeight: "600" as const,
-    color: Colors.gray,
-    letterSpacing: 0.8,
-    marginTop: 1,
   },
   scroll: {
     flex: 1,
@@ -931,61 +789,79 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   transactionList: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    overflow: "hidden",
-    marginBottom: 20,
+    gap: 12,
+    marginTop: 8,
   },
-  txItem: {
+  txCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: Colors.white,
+    padding: 14,
+    borderRadius: 16,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  txCardLeft: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
     gap: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   txIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
   txIconCredit: {
-    backgroundColor: Colors.greenLight,
+    backgroundColor: Colors.primaryLight,
   },
   txIconDebit: {
     backgroundColor: Colors.redLight,
   },
-  txInfo: {
-    flex: 1,
-  },
   txTitle: {
-    fontSize: 14,
-    fontWeight: "600" as const,
-    color: Colors.dark,
-  },
-  txVoid: {
-    fontSize: 10,
-    fontWeight: "700" as const,
-    color: Colors.lightGray,
-    marginTop: 2,
-    letterSpacing: 0.5,
-  },
-  txSubtext: {
-    fontSize: 10,
-    color: Colors.lightGray,
-    marginTop: 2,
-  },
-  txAmount: {
     fontSize: 15,
     fontWeight: "700" as const,
+    color: Colors.dark,
+    marginBottom: 4,
+  },
+  txDate: {
+    fontSize: 12,
+    color: Colors.gray,
+  },
+  txCardRight: {
+    alignItems: "flex-end",
+  },
+  txAmount: {
+    fontSize: 16,
+    fontWeight: "800" as const,
   },
   txAmountCredit: {
-    color: Colors.green,
+    color: Colors.primary,
   },
   txAmountDebit: {
     color: Colors.red,
+  },
+  txStatus: {
+    fontSize: 11,
+    fontWeight: "700" as const,
+    marginTop: 5,
+  },
+  txStatusSuccess: {
+    color: Colors.green,
+  },
+  txStatusPending: {
+    color: Colors.orange,
+  },
+  txStatusFailed: {
+    color: Colors.red,
+  },
+  txStatusVoid: {
+    color: Colors.gray,
   },
   quickActions: {
     backgroundColor: Colors.white,

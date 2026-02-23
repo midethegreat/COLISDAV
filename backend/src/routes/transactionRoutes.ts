@@ -16,7 +16,7 @@ router.post("/", createTransaction);
 router.post("/initialize-flutterwave", initializeFlutterwavePayment);
 
 // Route to verify a Flutterwave transaction (redirect)
-router.get("/verify-flutterwave", verifyFlutterwaveTransaction);
+router.post("/verify-flutterwave", verifyFlutterwaveTransaction);
 
 // Route for withdrawals
 router.post("/withdraw", withdraw);

@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
-  Menu,
   Search,
   SlidersHorizontal,
   Star,
@@ -29,6 +28,7 @@ import { MOCK_DRIVERS } from "../mocks/data";
 import { Driver } from "../types";
 import DrawerMenu from "../components/DrawerMenu";
 import { Bell } from "lucide-react-native";
+import Header from "../components/Header";
 
 type SortType = "nearest" | "seats" | "fare";
 type TricycleFilter = "all" | "yellow" | "green";
@@ -112,29 +112,15 @@ export default function RidesScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setDrawerOpen(true);
-          }}
-        >
-          <Menu size={22} color={Colors.dark} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Available Rides</Text>
-          <Text style={styles.headerSub}>
-            LIVE AVAILABILITY ACROSS THE CAMPUS
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => router.push("/notifications" as never)}
-          style={styles.notificationButton}
-        >
-          <Bell size={24} color={Colors.dark} />
-        </TouchableOpacity>
-      </View>
+      <Header
+        title="Available Rides"
+        subtitle="LIVE AVAILABILITY ACROSS THE CAMPUS"
+        onMenuPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setDrawerOpen(true);
+        }}
+        onNotificationPress={() => router.push("/notifications" as never)}
+      />
 
       <View style={styles.searchRow}>
         <View style={styles.searchInputWrap}>
@@ -348,46 +334,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerCenter: {
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700" as const,
-    color: Colors.dark,
-  },
-  headerSub: {
-    fontSize: 9,
-    fontWeight: "600" as const,
-    color: Colors.gray,
-    letterSpacing: 0.8,
-    marginTop: 1,
-  },
-  notificationButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
   },
   searchRow: {
     flexDirection: "row",

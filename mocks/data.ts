@@ -241,15 +241,6 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     date: "Sep 28, 2023",
     status: "completed",
   },
-  {
-    id: "8",
-    type: "topup",
-    title: "Monnify Top-up",
-    amount: 3000,
-    isCredit: true,
-    date: "Sep 25, 2023",
-    status: "completed",
-  },
 ];
 
 export const MOCK_VOUCHERS: Voucher[] = [

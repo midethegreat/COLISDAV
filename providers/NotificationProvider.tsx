@@ -13,6 +13,7 @@ import API_BASE_URL from "../constants/apiConfig";
 const API_URL = API_BASE_URL;
 // Construct WebSocket URL from the base API URL
 const WEBSOCKET_URL = API_BASE_URL.replace("http", "ws").replace("/api", "");
+console.log("Attempting to connect to WebSocket at:", WEBSOCKET_URL);
 
 interface Notification {
   id: string;

@@ -24,7 +24,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         AsyncStorage.getItem(USER_KEY),
       ]);
       if (authStr === "true" && userStr) {
-        setUser(JSON.parse(userStr));
+        const loadedUser = JSON.parse(userStr);
+        console.log("Loaded user from storage:", loadedUser);
+        setUser(loadedUser);
         setIsAuthenticated(true);
       }
     } catch (e) {
@@ -90,15 +92,27 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
 
     const { user: loggedInUser } = data;
+    const record = STUDENT_DATABASE[matricNumber];
+
+    // --- LOGGING START ---
+    console.log("Data from server (loggedInUser):", loggedInUser);
+    console.log("Data from mock DB (record):", record);
+    // --- LOGGING END ---
 
     const userWithPin: User = {
       ...loggedInUser,
+      fullName: loggedInUser.fullName || record?.fullName,
+      phoneNumber: loggedInUser.phoneNumber || record?.phoneNumber,
+      walletBalance: loggedInUser.walletBalance ?? 0,
+      walletBalance: 0, // Force balance to 0 to clear stale data
       pin,
       idCardImage: loggedInUser.idCardImage || null,
       bloodGroup: loggedInUser.bloodGroup || "Not set",
       bio: loggedInUser.bio || "Campus commuting, safer and faster.",
       profileImage: loggedInUser.profileImage || null,
     };
+
+    console.log("Final user object being saved:", userWithPin);
 
     await AsyncStorage.setItem(AUTH_KEY, "true");
     await AsyncStorage.setItem(USER_KEY, JSON.stringify(userWithPin));
@@ -128,6 +142,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     async (updates: Partial<User>) => {
       if (!user) return;
       const updated = { ...user, ...updates };
+      console.log("Updating user state:", updated);
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(updated));
       setUser(updated);
     },

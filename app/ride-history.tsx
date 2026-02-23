@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "../constants/color";
 import { MOCK_RIDES } from "../mocks/data";
 import DrawerMenu from "../components/DrawerMenu";
+import Header from "../components/Header";
 
 export default function RideHistoryScreen() {
   const router = useRouter();
@@ -51,24 +52,11 @@ export default function RideHistoryScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.btn}
-          onPress={() => setDrawerOpen(true)}
-        >
-          <Menu size={22} color={Colors.dark} />
-        </TouchableOpacity>
-        <View>
-          <Text style={styles.headerTitle}>Ride History</Text>
-          <Text style={styles.headerSub}>YOUR RECENT CAMPUS TRIPS</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.btn}
-          onPress={() => router.push("/notifications" as never)}
-        >
-          <Bell size={22} color={Colors.dark} />
-        </TouchableOpacity>
-      </View>
+      <Header
+        title="Ride History"
+        subtitle="YOUR RECENT CAMPUS TRIPS"
+        onMenuPress={() => setDrawerOpen(true)}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -159,38 +147,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  btn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700" as const,
-    color: Colors.dark,
-    textAlign: "center",
-  },
-  headerSub: {
-    fontSize: 9,
-    fontWeight: "600" as const,
-    color: Colors.gray,
-    letterSpacing: 1.2,
-    textAlign: "center",
   },
   scroll: {
     flex: 1,

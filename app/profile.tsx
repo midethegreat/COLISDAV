@@ -36,6 +36,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "../constants/color";
 import { useAuth } from "../providers/AuthProvider";
 import DrawerMenu from "../components/DrawerMenu";
+import Header from "../components/Header";
 import * as ImagePicker from "expo-image-picker";
 
 const DELETE_REASONS = [
@@ -319,18 +320,11 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => setDrawerOpen(true)}
-        >
-          <Menu size={22} color={Colors.dark} />
-        </TouchableOpacity>
-        <View>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <Text style={styles.headerSub}>PORTAL ACCOUNT MANAGEMENT</Text>
-        </View>
-      </View>
+      <Header
+        title="Profile"
+        subtitle="PORTAL ACCOUNT MANAGEMENT"
+        onMenuPress={() => setDrawerOpen(true)}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -942,38 +936,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: Colors.white,
-  },
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 5,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "800" as const,
-    color: Colors.dark,
-    paddingLeft: 60,
-    marginTop: 2,
-  },
-  headerSub: {
-    fontSize: 10,
-    fontWeight: "700" as const,
-    color: Colors.primary,
-    letterSpacing: 1,
-    marginTop: 2,
-    paddingLeft: 20,
-  },
+
   scroll: {
     flex: 1,
   },

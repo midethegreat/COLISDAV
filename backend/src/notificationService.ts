@@ -9,7 +9,27 @@ const userRepository = AppDataSource.getRepository(User);
 const clients = new Map<string, WebSocket>();
 
 export function setupWebSocket(server: Server) {
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({
+    server,
+    verifyClient: (info, done) => {
+      const origin = info.origin;
+      // IMPORTANT: Replace with your actual ngrok URL
+      const allowedOrigins = [
+        "https://syntonic-carletta-noncosmic.ngrok-free.dev",
+        "http://localhost:8081",
+      ];
+
+      console.log("Verifying WebSocket connection from origin:", origin);
+
+      if (origin && allowedOrigins.includes(origin)) {
+        console.log(`Origin ${origin} is allowed.`);
+        done(true); // Allow the connection
+      } else {
+        console.warn(`Origin ${origin} is NOT allowed. Rejecting connection.`);
+        done(false, 403, "Forbidden origin"); // Reject the connection
+      }
+    },
+  });
 
   wss.on("connection", (ws, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);

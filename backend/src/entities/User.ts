@@ -34,7 +34,7 @@ export class User {
   @Column()
   phoneNumber: string;
 
-  @Column({ type: "float", default: 5000 })
+  @Column({ type: "float", default: 0 })
   walletBalance: number;
 
   @CreateDateColumn()

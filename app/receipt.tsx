@@ -1,20 +1,13 @@
-import React, { useRef, useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-  Share,
-  Platform,
-  Alert,
-} from "react-native";
+import React, { useRef } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Share2, Printer, CheckCircle } from "lucide-react-native";
+import { ArrowLeft, Share2, Download, CheckCircle } from "lucide-react-native";
 import QRCode from "react-native-qrcode-svg";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ViewShot, { captureRef } from "react-native-view-shot";
+import * as MediaLibrary from "expo-media-library";
 import DepositReceipt from "../components/DepositReceipt";
 import Colors from "../constants/color";
 
@@ -44,185 +37,56 @@ export default function ReceiptScreen() {
   const pickupName = params.pickup ?? "Senate Building";
   const destName = params.destination ?? "Library Junction";
   const dateStr = params.date ?? "Oct 23, 09:10 AM";
-
-  const [isPrinting, setIsPrinting] = useState<boolean>(true);
-  const [printComplete, setPrintComplete] = useState<boolean>(false);
-  const printSlide = useRef(new Animated.Value(-500)).current;
-  const printerFeed = useRef(new Animated.Value(0)).current;
-  const receiptOpacity = useRef(new Animated.Value(0)).current;
-  const checkScale = useRef(new Animated.Value(0)).current;
-  const actionsOpacity = useRef(new Animated.Value(0)).current;
-  const stripAnim1 = useRef(new Animated.Value(0)).current;
-  const stripAnim2 = useRef(new Animated.Value(0)).current;
-  const stripAnim3 = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.sequence([
-      Animated.timing(printerFeed, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.stagger(150, [
-        Animated.timing(stripAnim1, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(stripAnim2, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(stripAnim3, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.spring(printSlide, {
-        toValue: 0,
-        tension: 40,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-      Animated.timing(receiptOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setIsPrinting(false);
-      setPrintComplete(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      Animated.parallel([
-        Animated.spring(checkScale, {
-          toValue: 1,
-          tension: 80,
-          friction: 6,
-          useNativeDriver: true,
-        }),
-        Animated.timing(actionsOpacity, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    });
-  }, []);
-
-  const receiptText = `
-CID NIGERIA - E-RECEIPT
-========================
-VERIFIED CAMPUS PARTNER
-FUNAAB
-Date: ${dateStr}
-TX ID: ${txId}
-------------------------
-BILLING DETAILS
-CAMPUS COMMUTE
-From: ${pickupName}
-To: ${destName}
-Amount: ₦${fare}
-Tip: ₦${tipAmount}
-SERVICE FEE: ₦0
-------------------------
-TOTAL BILL: ₦${totalBill}
-${isVoided ? "STATUS: VOIDED" : "STATUS: COMPLETED"}
-========================
-Thank you for riding with CID!
-  `.trim();
-
-  const receiptHtml = `
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <style>
-          body { font-family: 'Courier New', monospace; padding: 40px; max-width: 400px; margin: 0 auto; }
-          .header { text-align: center; border-bottom: 2px solid #1B7A43; padding-bottom: 20px; margin-bottom: 20px; }
-          .brand { font-size: 24px; font-weight: bold; color: #1A2332; }
-          .partner { font-size: 10px; color: #1B7A43; letter-spacing: 2px; margin-top: 4px; }
-          .campus { font-size: 12px; color: #9CA3AF; margin-top: 4px; }
-          .meta { display: flex; justify-content: space-between; margin: 16px 0; font-size: 12px; color: #374151; }
-          .divider { border-top: 1px dashed #E5E7EB; margin: 16px 0; }
-          .section-label { font-size: 10px; color: #1B7A43; letter-spacing: 2px; margin-bottom: 12px; }
-          .billing-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-          .billing-title { font-size: 14px; font-weight: bold; color: #1A2332; }
-          .route { font-size: 12px; color: #6B7280; margin-top: 4px; }
-          .route-to { font-size: 12px; color: #1B7A43; font-weight: bold; margin-top: 2px; }
-          .amount { font-size: 18px; font-weight: bold; color: #1A2332; }
-          .fee-row { display: flex; justify-content: space-between; font-size: 11px; color: #9CA3AF; margin: 8px 0; }
-          .total-row { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
-          .total-label { font-size: 14px; font-weight: bold; color: #1A2332; }
-          .total-amount { font-size: 24px; font-weight: bold; color: ${isVoided ? "#DC2626" : "#1B7A43"}; ${isVoided ? "text-decoration: line-through;" : ""} }
-          .voided { font-size: 10px; color: #DC2626; letter-spacing: 1px; text-align: right; margin-top: 4px; }
-          .footer { text-align: center; margin-top: 30px; font-size: 11px; color: #9CA3AF; }
-          .status-badge { text-align: center; padding: 8px; border-radius: 8px; margin-top: 16px; font-size: 12px; font-weight: bold; letter-spacing: 1px; }
-          .status-completed { background: #D1FAE5; color: #1B7A43; }
-          .status-voided { background: #FEE2E2; color: #DC2626; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="brand">CID NIGERIA</div>
-          <div class="partner">VERIFIED CAMPUS PARTNER</div>
-          <div class="campus">FUNAAB</div>
-        </div>
-        <div class="meta">
-          <span>${dateStr}</span>
-          <span>${txId}</span>
-        </div>
-        <div class="divider"></div>
-        <div class="section-label">BILLING DETAILS</div>
-        <div class="billing-row">
-          <div>
-            <div class="billing-title">CAMPUS COMMUTE</div>
-            <div class="route">${pickupName}</div>
-            <div class="route-to">→ ${destName}</div>
-          </div>
-          <div class="amount">₦${fare}</div>
-        </div>
-        <div class="fee-row">
-          <span>Tip</span>
-          <span>₦${tipAmount}</span>
-        </div>
-        <div class="fee-row">
-          <span>SERVICE FEE</span>
-          <span>₦0</span>
-        </div>
-        <div class="divider"></div>
-        <div class="total-row">
-          <span class="total-label">TOTAL BILL</span>
-          <div>
-            <div class="total-amount">₦${totalBill}</div>
-            ${isVoided ? '<div class="voided">TRANSACTION VOIDED</div>' : ""}
-          </div>
-        </div>
-        <div class="status-badge ${isVoided ? "status-voided" : "status-completed"}">
-          ${isVoided ? "VOIDED" : "PAYMENT COMPLETED"}
-        </div>
-        <div class="footer">Thank you for riding with CID Nigeria!</div>
-      </body>
-    </html>
-  `;
+  const receiptRef = useRef();
 
   const handleShare = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      await Share.share({
-        message: receiptText,
-        title: `CID Receipt - ${txId}`,
+      const uri = await captureRef(receiptRef, {
+        format: "png",
+        quality: 0.9,
+        result: "tmpfile",
+      });
+
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: `CID Receipt - ${txId}`,
       });
     } catch (error) {
       console.log("Share error:", error);
+      Alert.alert("Error", "Could not share receipt. Please try again.");
     }
   };
 
-  const printerScaleY = printerFeed.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.95, 1],
-  });
+  const handleDownload = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "We need access to your photo gallery to save the receipt.",
+        );
+        return;
+      }
+
+      const uri = await captureRef(receiptRef, {
+        format: "png",
+        quality: 1.0,
+        result: "tmpfile",
+      });
+
+      await MediaLibrary.saveToLibraryAsync(uri);
+
+      Alert.alert(
+        "Saved!",
+        "The receipt has been saved to your photo gallery.",
+      );
+    } catch (error) {
+      console.log("Download error:", error);
+      Alert.alert("Error", "Could not save receipt. Please try again.");
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -231,72 +95,29 @@ Thank you for riding with CID!
           <ArrowLeft size={22} color={Colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>E-RECEIPT</Text>
-        {printComplete ? (
-          <View style={styles.doneRow}>
-            <View
-              style={[
-                styles.doneDot,
-                { backgroundColor: isVoided ? Colors.red : Colors.green },
-              ]}
-            />
-            <Text
-              style={[
-                styles.doneText,
-                { color: isVoided ? Colors.red : Colors.green },
-              ]}
-            >
-              {isVoided ? "VOIDED" : "PAID"}
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.printingRow}>
-            <Printer size={16} color={Colors.primary} />
-            <Text style={styles.printingText}>PRINTING...</Text>
-          </View>
-        )}
+        <View style={styles.doneRow}>
+          <View
+            style={[
+              styles.doneDot,
+              { backgroundColor: isVoided ? Colors.red : Colors.green },
+            ]}
+          />
+          <Text
+            style={[
+              styles.doneText,
+              { color: isVoided ? Colors.red : Colors.green },
+            ]}
+          >
+            {isVoided ? "VOIDED" : "PAID"}
+          </Text>
+        </View>
       </View>
 
-      <View style={styles.printerArea}>
-        {isPrinting && (
-          <View style={styles.printerSlot}>
-            <View style={styles.printerBody}>
-              <View style={styles.printerTop} />
-              <View style={styles.printerSlotLine} />
-              <Animated.View
-                style={[
-                  styles.feedStrip,
-                  { opacity: stripAnim1, transform: [{ scaleX: stripAnim1 }] },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.feedStrip,
-                  styles.feedStrip2,
-                  { opacity: stripAnim2, transform: [{ scaleX: stripAnim2 }] },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.feedStrip,
-                  styles.feedStrip3,
-                  { opacity: stripAnim3, transform: [{ scaleX: stripAnim3 }] },
-                ]}
-              />
-            </View>
-          </View>
-        )}
-
-        <Animated.View
-          style={[
-            styles.receiptWrap,
-            {
-              transform: [
-                { translateY: printSlide },
-                { scaleY: printerScaleY },
-              ],
-              opacity: receiptOpacity,
-            },
-          ]}
+      <View style={styles.receiptContainer}>
+        <ViewShot
+          ref={receiptRef}
+          options={{ format: "png", quality: 0.9 }}
+          style={styles.receiptShot}
         >
           <View style={styles.receiptCard}>
             <View style={styles.tearEdge}>
@@ -306,19 +127,12 @@ Thank you for riding with CID!
             </View>
 
             <View style={styles.receiptInner}>
-              <Animated.View
-                style={[
-                  styles.checkCircle,
-                  { transform: [{ scale: checkScale }] },
-                ]}
-              >
-                {printComplete && (
-                  <CheckCircle
-                    size={32}
-                    color={isVoided ? Colors.red : Colors.primary}
-                  />
-                )}
-              </Animated.View>
+              <View style={styles.checkCircle}>
+                <CheckCircle
+                  size={32}
+                  color={isVoided ? Colors.red : Colors.primary}
+                />
+              </View>
 
               <Text style={styles.brand}>CID NIGERIA</Text>
               <Text style={styles.partnerLabel}>VERIFIED CAMPUS PARTNER</Text>
@@ -393,16 +207,19 @@ Thank you for riding with CID!
               ))}
             </View>
           </View>
-        </Animated.View>
+        </ViewShot>
       </View>
 
-      <Animated.View
-        style={[
-          styles.footer,
-          { opacity: actionsOpacity, paddingBottom: insets.bottom + 20 },
-        ]}
-      >
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={handleDownload}
+            activeOpacity={0.85}
+          >
+            <Download size={20} color={Colors.primary} />
+            <Text style={styles.actionBtnText}>Download</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionBtn}
             onPress={handleShare}
@@ -419,7 +236,7 @@ Thank you for riding with CID!
         >
           <Text style={styles.doneBtnText}>Done</Text>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
     </View>
   );
 }
@@ -476,67 +293,23 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     letterSpacing: 0.5,
   },
-  printerArea: {
+  receiptContainer: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "flex-start",
-    paddingTop: 8,
-  },
-  printerSlot: {
-    alignItems: "center",
-    zIndex: 2,
-  },
-  printerBody: {
-    width: 280,
-    height: 48,
-    backgroundColor: Colors.dark,
-    borderRadius: 12,
-    alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
+    padding: 24,
   },
-  printerTop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 8,
-    backgroundColor: "#2A3544",
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  printerSlotLine: {
-    width: "70%",
-    height: 3,
-    backgroundColor: "#374151",
-    borderRadius: 2,
-    marginTop: 6,
-  },
-  feedStrip: {
-    width: "60%",
-    height: 2,
-    backgroundColor: "#4B5563",
-    borderRadius: 1,
-    marginTop: 4,
-  },
-  feedStrip2: {
-    width: "50%",
-  },
-  feedStrip3: {
-    width: "40%",
-  },
-  receiptWrap: {
-    paddingHorizontal: 24,
-    width: "100%",
-    marginTop: -4,
-  },
-  receiptCard: {
+  receiptShot: {
     backgroundColor: Colors.white,
+    borderRadius: 6,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
     shadowRadius: 24,
     elevation: 6,
+  },
+  receiptCard: {
+    backgroundColor: "transparent",
   },
   tearEdge: {
     flexDirection: "row",

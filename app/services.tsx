@@ -20,6 +20,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "../constants/color";
 import DrawerMenu from "../components/DrawerMenu";
+import Header from "../components/Header";
 
 const PLANNED_SERVICES = [
   {
@@ -49,24 +50,11 @@ export default function ServicesScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => setDrawerOpen(true)}
-        >
-          <Menu size={22} color={Colors.dark} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Services</Text>
-          <Text style={styles.headerSub}>BEYOND CAMPUS COMMUTING</Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => router.push("/notifications" as never)}
-          style={styles.notificationButton}
-        >
-          <Bell size={24} color={Colors.dark} />
-        </TouchableOpacity>
-      </View>
+      <Header
+        title="Services"
+        subtitle="BEYOND CAMPUS COMMUTING"
+        onMenuPress={() => setDrawerOpen(true)}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -117,46 +105,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerCenter: {
-    alignItems: "center",
-  },
-  notificationButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700" as const,
-    color: Colors.dark,
-  },
-  headerSub: {
-    fontSize: 9,
-    fontWeight: "600" as const,
-    color: Colors.gray,
-    letterSpacing: 0.8,
-    marginTop: 1,
   },
   scroll: {
     flex: 1,

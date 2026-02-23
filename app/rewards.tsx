@@ -25,6 +25,7 @@ import Colors from "../constants/color";
 import { useAuth } from "../providers/AuthProvider";
 import DrawerMenu from "../components/DrawerMenu";
 import { MOCK_VOUCHERS } from "../mocks/data";
+import Header from "../components/Header";
 
 const REWARD_TIERS = [
   {
@@ -163,24 +164,11 @@ export default function RewardsScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.menuBtn}
-          onPress={() => setDrawerOpen(true)}
-        >
-          <Menu size={22} color={Colors.dark} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Rewards Hub</Text>
-          <Text style={styles.headerSub}>EARN WHILE YOU RIDE</Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => router.push("/notifications" as never)}
-          style={styles.notificationButton}
-        >
-          <Bell size={24} color={Colors.dark} />
-        </TouchableOpacity>
-      </View>
+      <Header
+        title="Rewards Hub"
+        subtitle="EARN WHILE YOU RIDE"
+        onMenuPress={() => setDrawerOpen(true)}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -356,46 +344,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  menuBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerCenter: {
-    alignItems: "center",
-  },
-  notificationButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700" as const,
-    color: Colors.dark,
-  },
-  headerSub: {
-    fontSize: 9,
-    fontWeight: "600" as const,
-    color: Colors.gray,
-    letterSpacing: 0.8,
-    marginTop: 1,
   },
   scroll: {
     flex: 1,
