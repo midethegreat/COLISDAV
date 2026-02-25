@@ -64,7 +64,7 @@ export const updateRideStatus = async (req: Request, res: Response) => {
 
   try {
     const ride = await rideRepository.findOne({
-      where: { id: rideId },
+      where: { id: rideId as any },
       relations: ["user"],
     });
     if (!ride) {
@@ -151,7 +151,7 @@ export const getRidesByUser = async (req: Request, res: Response) => {
 
   try {
     const rides = await rideRepository.find({
-      where: { user: { id: userId } },
+      where: { user: { id: userId as any } },
     });
 
     console.log(`Fetched ride history for user ${userId}`);
@@ -182,13 +182,11 @@ export const rateAndTipRide = async (req: Request, res: Response) => {
   }
 
   if (rating < 1 || rating > 5) {
-    return res
-      .status(400)
-      .json({ message: "Rating must be between 1 and 5." });
+    return res.status(400).json({ message: "Rating must be between 1 and 5." });
   }
 
   try {
-    const ride = await rideRepository.findOneBy({ id: rideId });
+    const ride = await rideRepository.findOneBy({ id: rideId as any });
     if (!ride) {
       return res.status(404).json({ message: "Ride not found." });
     }

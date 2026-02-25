@@ -10,13 +10,10 @@ export const getNotificationsByUser = async (req: Request, res: Response) => {
 
   try {
     const notifications = await notificationRepository.find({
-      where: { user: { id: userId } },
+      where: { user: { id: userId as any } },
       order: { createdAt: "DESC" }, // Show newest first
     });
 
-    console.log(
-      `Fetched ${notifications.length} notifications for user ${userId}`,
-    );
     return res.status(200).json(notifications);
   } catch (error) {
     console.error("Error fetching notifications:", error);
@@ -30,7 +27,7 @@ export const markNotificationAsRead = async (req: Request, res: Response) => {
 
   try {
     const notification = await notificationRepository.findOneBy({
-      id: notificationId,
+      id: notificationId as any,
     });
 
     if (!notification) {
@@ -60,7 +57,7 @@ export const markAllNotificationsAsRead = async (
   try {
     // Efficiently update all unread notifications for the user to be read
     await notificationRepository.update(
-      { user: { id: userId }, isRead: false },
+      { user: { id: userId as any }, isRead: false },
       { isRead: true },
     );
 

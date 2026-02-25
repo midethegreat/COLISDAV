@@ -4,7 +4,7 @@
     "slug": "campusride-nigeria",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/colisdav.png",
     "scheme": "cid",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -19,8 +19,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/colisdav.png",
+        "backgroundColor": "#00000000"
       },
       "package": "app.rork.campusride_nigeria",
       "intentFilters": [

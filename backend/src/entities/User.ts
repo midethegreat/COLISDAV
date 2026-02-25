@@ -5,53 +5,64 @@ import {
   CreateDateColumn,
 } from "typeorm";
 
+export enum RewardTier {
+  BRONZE = "Bronze",
+  SILVER = "Silver",
+  GOLD = "Gold",
+  PLATINUM = "Platinum",
+}
+
 @Entity()
 export class User {
   @PrimaryGeneratedColumn("uuid")
-  id: string;
+  id!: string;
 
   @Column({ unique: true })
-  matricNumber: string;
+  matricNumber!: string;
 
   @Column()
-  pin: string;
+  pin!: string;
 
   @Column({ nullable: true })
-  idCardImage: string;
+  idCardImage!: string;
 
   @Column({ unique: true })
-  email: string;
+  email!: string;
 
   @Column()
-  fullName: string;
+  fullName!: string;
 
   @Column()
-  department: string;
+  department!: string;
 
   @Column()
-  level: string;
+  level!: string;
 
   @Column()
-  phoneNumber: string;
+  phoneNumber!: string;
 
   @Column({ type: "float", default: 0 })
-  walletBalance: number;
+  walletBalance!: number;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Column({ default: false })
-  isVerified: boolean;
+  isVerified!: boolean;
 
-  @Column({ nullable: true })
-  otp: string;
+  @Column({ type: "varchar", nullable: true })
+  otp!: string | null;
 
   @Column({ type: "datetime", nullable: true })
-  otpExpires: Date;
+  otpExpires!: Date | null;
 
   @Column({ default: 0 })
-  rideCount: number;
+  rideCount!: number;
 
-  @Column({ default: "Bronze" })
-  rewardTier: string;
+  @Column({
+    type: "simple-enum",
+    enum: RewardTier,
+    default: RewardTier.BRONZE,
+  })
+  rewardTier!: RewardTier;
 }

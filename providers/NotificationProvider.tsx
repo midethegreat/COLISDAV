@@ -12,7 +12,8 @@ import API_BASE_URL from "../constants/apiConfig";
 
 const API_URL = API_BASE_URL;
 // Construct WebSocket URL from the base API URL
-const WEBSOCKET_URL = API_BASE_URL.replace("http", "ws").replace("/api", "");
+const WEBSOCKET_URL =
+  API_BASE_URL.replace(/^http/, "ws").replace("/api", "") + "/ws";
 console.log("Attempting to connect to WebSocket at:", WEBSOCKET_URL);
 
 interface Notification {
@@ -58,7 +59,10 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         setNotifications(data);
         console.log(`Fetched ${data.length} notifications for user ${user.id}`);
       } else {
-        console.error("Failed to fetch notifications");
+        console.error(
+          "Failed to fetch notifications. Status:",
+          response.status,
+        );
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -140,7 +144,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
 
       ws.onerror = (e) => {
         // The 'e' object for onerror is typically a generic Event.
-        console.error("WebSocket error observed:", e.message);
+        console.error("WebSocket error observed:", e);
       };
 
       ws.onclose = (e) => {

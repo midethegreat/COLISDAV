@@ -17,44 +17,36 @@ export enum RideStatus {
 @Entity()
 export class Ride {
   @PrimaryGeneratedColumn("uuid")
-  id: string;
+  id!: string;
 
   @ManyToOne(() => User, (user) => user.id)
-  user: User;
+  user!: User;
 
   @Column()
-  origin: string;
+  origin!: string;
 
   @Column()
-  destination: string;
+  destination!: string;
 
   @Column("float")
-  fare: number;
+  fare!: number;
 
   @Column({
     type: "simple-enum",
     enum: RideStatus,
     default: RideStatus.BOOKED,
   })
-  status: RideStatus;
+  status!: RideStatus;
 
   @Column({ length: 4, nullable: true })
-  verificationCode: string;
+  verificationCode!: string;
 
   @CreateDateColumn()
-  createdAt: Date;
- 
-  // ... other columns
-  @Column({ length: 4, nullable: true })
-  verificationCode: string;
+  createdAt!: Date;
 
-  @Column({ type: "int", nullable: true }) // <-- Add this
-  rating: number;
+  @Column({ type: "int", nullable: true })
+  rating!: number;
 
-  @Column({ type: "float", nullable: true }) // <-- And this
-  tip: number;
-
-  @CreateDateColumn()
-  createdAt: Date;
-  
+  @Column({ type: "float", nullable: true })
+  tip!: number;
 }

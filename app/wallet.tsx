@@ -142,6 +142,7 @@ export default function WalletScreen() {
             email: user.email,
             phoneNumber: user.phoneNumber,
             fullName: user.fullName,
+            redirectUrl: Linking.createURL("wallet"),
           }),
         },
       );

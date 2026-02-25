@@ -17,29 +17,28 @@ export enum VerificationStatus {
 @Entity()
 export class BankAccount {
   @PrimaryGeneratedColumn("uuid")
-  id: string;
+  id!: string;
 
   @ManyToOne(() => User)
   @JoinColumn()
-  user: User;
+  user!: User;
 
   @Column()
-  accountNumber: string;
+  accountNumber!: string;
 
   @Column()
-  bankCode: string;
+  bankCode!: string;
 
   @Column()
-  accountName: string;
+  accountName!: string;
 
   @Column({
     type: "simple-enum",
     enum: VerificationStatus,
     default: VerificationStatus.PENDING,
   })
-  status: VerificationStatus;
-  VerificationStatus;
+  status!: VerificationStatus;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 }

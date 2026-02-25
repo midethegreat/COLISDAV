@@ -36,7 +36,7 @@ export const verifyBankAccount = async (req: Request, res: Response) => {
       console.error("Flutterwave verification error:", response); // Full error response
       throw new Error(response.message || "Failed to verify bank account.");
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Bank verification failed:", error);
     res
       .status(500)
@@ -52,14 +52,14 @@ export const addBankAccount = async (req: Request, res: Response) => {
   }
 
   try {
-    const user = await userRepository.findOneBy({ id: userId });
+    const user = await userRepository.findOneBy({ id: userId as any });
     if (!user) {
       return res.status(404).json({ message: "User not found." });
     }
 
     // Check if the bank account is already linked to this user
     const existingAccount = await bankAccountRepository.findOne({
-      where: { user: { id: userId }, accountNumber, bankCode },
+      where: { user: { id: userId as any }, accountNumber, bankCode },
     });
 
     if (existingAccount) {
@@ -81,7 +81,7 @@ export const addBankAccount = async (req: Request, res: Response) => {
       message: "Bank account added successfully.",
       account: newAccount,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error adding bank account:", error);
     res.status(500).json({ message: "Failed to add bank account." });
   }
@@ -95,17 +95,17 @@ export const getBankAccounts = async (req: Request, res: Response) => {
   }
 
   try {
-    const user = await userRepository.findOneBy({ id: userId });
+    const user = await userRepository.findOneBy({ id: userId as any });
     if (!user) {
       return res.status(404).json({ message: "User not found." });
     }
 
     const accounts = await bankAccountRepository.find({
-      where: { user: { id: userId } },
+      where: { user: { id: userId as any } },
     });
 
     res.status(200).json(accounts);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching bank accounts for user:", userId, error);
     res.status(500).json({
       message: "Server error while fetching bank accounts.",
@@ -122,7 +122,9 @@ export const deleteBankAccount = async (req: Request, res: Response) => {
   }
 
   try {
-    const account = await bankAccountRepository.findOneBy({ id: accountId });
+    const account = await bankAccountRepository.findOneBy({
+      id: accountId as any,
+    });
 
     if (!account) {
       return res.status(404).json({ message: "Bank account not found." });
@@ -131,7 +133,7 @@ export const deleteBankAccount = async (req: Request, res: Response) => {
     await bankAccountRepository.remove(account);
 
     res.status(200).json({ message: "Bank account deleted successfully." });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error deleting bank account:", error);
     res.status(500).json({ message: "Server error during account deletion." });
   }
@@ -152,7 +154,7 @@ export const getFlutterwaveBankList = async (req: Request, res: Response) => {
     } else {
       throw new Error("Failed to fetch bank list from Flutterwave.");
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching Flutterwave bank list:", error);
     res
       .status(500)

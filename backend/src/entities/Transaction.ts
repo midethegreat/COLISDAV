@@ -22,27 +22,30 @@ export enum TransactionStatus {
 @Entity()
 export class Transaction {
   @PrimaryGeneratedColumn("uuid")
-  id: string;
+  id!: string;
 
   @ManyToOne(() => User, (user) => user.id)
-  user: User;
+  user!: User;
 
   @Column({
     type: "simple-enum",
     enum: TransactionType,
   })
-  type: TransactionType;
+  type!: TransactionType;
 
   @Column("float")
-  amount: number;
+  amount!: number;
 
   @Column({
     type: "simple-enum",
     enum: TransactionStatus,
     default: TransactionStatus.PENDING,
   })
-  status: TransactionStatus;
+  status!: TransactionStatus;
+
+  @Column({ nullable: true }) // Add this column
+  reference!: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 }

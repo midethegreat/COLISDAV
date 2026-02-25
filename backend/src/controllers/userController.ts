@@ -114,7 +114,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    if (user.otp !== otp || new Date() > user.otpExpires) {
+    if (user.otp !== otp || !user.otpExpires || new Date() > user.otpExpires) {
       return res.status(400).json({ message: "Invalid or expired OTP." });
     }
 
@@ -199,11 +199,9 @@ export const setPin = async (req: Request, res: Response) => {
     }
 
     if (!user.isVerified) {
-      return res
-        .status(403)
-        .json({
-          message: "Email not verified. Please verify your email first.",
-        });
+      return res.status(403).json({
+        message: "Email not verified. Please verify your email first.",
+      });
     }
 
     user.pin = pin;

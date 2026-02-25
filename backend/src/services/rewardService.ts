@@ -1,5 +1,6 @@
 import { AppDataSource } from "../data-source";
 import { User, RewardTier } from "../entities/User";
+import { sendNotification } from "../notificationService";
 
 const userRepository = AppDataSource.getRepository(User);
 
@@ -18,5 +19,10 @@ export const checkAndApplyRewardTier = async (user: User) => {
     user.rewardTier = newTier;
     await userRepository.save(user);
     console.log(`User ${user.email} promoted to ${newTier} tier.`);
+    await sendNotification(
+      user.id,
+      `Congratulations! You've reached the ${newTier} tier!`,
+      `You now have access to new perks.`,
+    );
   }
 };
